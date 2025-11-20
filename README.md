@@ -18,10 +18,10 @@ AgentDNA is a package that helps in auditing and verifiability of Agents within 
 ## Installation
 ```
 # Installation via pip
-pip install agentdna
+pip install agent-dna
 
 # Installation via uv
-uv add agentdna
+uv add agent-dna
 ```
 
 ## Architecture
