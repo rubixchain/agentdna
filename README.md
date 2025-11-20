@@ -61,9 +61,6 @@ AgentDNA internally wraps several layers to keep agent developers free from Rubi
 └─────────────────────────┘
 ```
 
-### As a developer, you only see **AgentDNA**.  
-Everything else is abstracted
-
 ## Agent Roles
 AgentDNA supports two roles:
 
