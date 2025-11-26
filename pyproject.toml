@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-dna"
-version = "0.1.0"
+version = "0.2.0"
 description = "AgentDNA: Verifiable and Auditable AI Agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,10 +18,11 @@ dependencies = [
   "requests>=2.0.0",
   "python-dotenv>=1.0.0",
   "rubix-py",
+  "py-multiformats-cid>=0.4.4",
 ]
 
 [tool.setuptools.package-data]
-"agentdna" = ["token.txt"]
+"agentdna" = ["token.txt", "config.json"]
 
 [project.urls]
 Homepage = "https://github.com/rubixchain/agentdna"

@@ -1,24 +1,77 @@
 import asyncio
 import json
 import os
+import copy
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Union
+from multiformats_cid.cid import CIDv0
+import hashlib
+import random
 from .trust import RubixTrustService
 
+import os
 
-def load_nft_config() -> dict:
+def ensure_agent_nft_artifact():
     """
-    Load NFT settings (paths + value + init data) from env,
-    with defaults suitable for the pickleball demo.
+    Ensures an NFT artifact file exists.
+    Respects NFT_ARTIFACT_PATH or falls back to 'agent_nft_artifact'.
+    Returns the full path.
     """
+    file_path = os.getenv("NFT_ARTIFACT_PATH", "agent_nft_artifact")
+
+    # Create file if missing
+    if not os.path.exists(file_path):
+        with open(file_path, "w") as f:
+            f.write("")  # empty file
+            
+
+    return file_path
+
+
+def ensure_agent_nft_metadata():
+    """
+    Ensures an NFT metadata file exists.
+    Respects NFT_METADATA_PATH or falls back to 'agent_nft_metadata'.
+    Returns the full path.
+    """
+    file_path = os.getenv("NFT_METADATA_PATH", "agent_nft_metadata")
+
+    # Create file if missing
+    if not os.path.exists(file_path):
+        with open(file_path, "w") as f:
+            f.write("")  # empty file
+
+    return file_path
+
+def _default_config_path() -> Path:
+    # Same logic as NodeClient
+    return Path(__file__).resolve().parent.parent / "config.json"
+
+
+
+def load_nft_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+    if not config_path:
+        config_path = _default_config_path()
+
+    cfg_nft: Dict[str, Any] = {}
+    try:
+        with Path(config_path).open("r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        cfg_nft = cfg.get("nft", {}) or {}
+    except Exception:
+        cfg_nft = {}
+
+    default_value = 0.001
+    default_data = "init data"
+
     return {
-        "artifact_path": os.getenv("NFT_ARTIFACT_PATH", "artifacts/pickleball.json"),
-        "metadata_path": os.getenv("NFT_METADATA_PATH", "artifacts/pickleball-meta.json"),
-        "value": float(os.getenv("NFT_VALUE", "0.001")),
-        "data": os.getenv("NFT_INIT_DATA", "init data"),
+        "value": float(os.getenv("NFT_VALUE", cfg_nft.get("value", default_value))),
+        "data": os.getenv("NFT_INIT_DATA", cfg_nft.get("data", default_data)),
+        "password": cfg_nft.get("password"),
+        "timeout": float(cfg_nft.get("timeout", 100.0)),
+        "quorum_type": int(cfg_nft.get("quorum_type", 2)),
     }
 
 
@@ -119,10 +172,17 @@ class RubixMessageHandler:
         self.did = self.trust.did
         self.signer = self.trust.signer
 
+        self.alias = alias
+
         # NFT config
         self.enable_nft = enable_nft
         self.nft_cfg = load_nft_config()
         self.last_parts: List[Dict[str, Any]] = []
+
+        self.last_trust_issues: List[str] = []
+        self.last_verification_status: str = "unknown"  # "ok" | "failed" | "unknown"
+        self.inject_fake: bool = False
+
 
         # Where to store NFT token (host project, not site-packages)
         self.token_path: Optional[Path] = None
@@ -346,13 +406,21 @@ class RubixMessageHandler:
         else:
             print(f"⚠️ token.txt not found at {self.token_path}, deploying new NFT…")
 
+        text = f"{self.alias}-{uuid.uuid4()}"
+        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        multihash_bytes = bytes([0x12, len(digest)]) + digest
+        cid = CIDv0(multihash_bytes)
+        cid_str = cid.encode().decode("utf-8")
+
+        print("CIDv0:", cid_str)  
+
         print("Creating a new NFT")
-        print("Artifact path:", self.nft_cfg["artifact_path"])
-        print("Metadata path:", self.nft_cfg["metadata_path"])
+        print("nft_value: ", self.nft_cfg["value"] or 0.001)
+        print("nft_data: ", self.nft_cfg["data"] or "init data")
+
 
         resp = self.signer.deploy_nft(
-            artifact_file=self.nft_cfg["artifact_path"],
-            metadata_file=self.nft_cfg["metadata_path"],
+            nft_id=cid_str,        
             nft_value=self.nft_cfg["value"] or 0.001,
             nft_data=self.nft_cfg["data"] or "init data",
         )
@@ -375,9 +443,6 @@ class RubixMessageHandler:
         remote_name: str,
         execute_nft: bool,
     ) -> Dict[str, Any]:
-        """
-        Old handle_response_parts, but wrapped into handle(kind="host_response").
-        """
         verified: List[Dict[str, Any]] = []
         trust_issues: List[str] = []
         error_msg: Optional[str] = None
@@ -390,7 +455,6 @@ class RubixMessageHandler:
             except (TypeError, json.JSONDecodeError):
                 continue
 
-            # Expect {"host": {...}, "agent": {...}}
             if not isinstance(payload, dict) or "agent" not in payload:
                 continue
 
@@ -401,27 +465,43 @@ class RubixMessageHandler:
             env = agent_block.get("envelope", {})
             sig = agent_block.get("signature")
 
-            if not (signer_did and env and sig):
+            if not (signer_did and env and sig and isinstance(env, dict)):
                 trust_issues.append("Missing fields in agent block")
                 print("Missing fields in agent block")
                 continue
 
-            # verify via trust service
-            if not self.trust.verify_envelope(signer_did, env, sig):
+            env_verified = copy.deepcopy(env)
+
+            if not self.trust.verify_envelope(signer_did, env_verified, sig):
                 trust_issues.append(f"Invalid signature from {signer_did}")
                 print(f"Invalid signature from {signer_did}")
                 continue
 
-            # Optional consistency check
-            if env.get("original_message") != original_task:
-                trust_issues.append("Original message mismatch")
-                print("Original message mismatch")
+            if env_verified.get("original_message") != original_task:
+                trust_issues.append("Original message mismatch (before tamper)")
+                print("Original message mismatch (before tamper)")
+
+            agent_sig_valid = True
+            env_to_store = copy.deepcopy(env_verified)
+
+            if self.inject_fake:
+                env_to_store["original_message"] = (
+                    (env_to_store.get("original_message") or "") + " [TAMPERED]"
+                )
+                agent_sig_valid = False
+                trust_issues.append(
+                    "Tampering: original_message changed"
+                )
+                print("⚠️ Tampering with original message")
 
             verified.append(
                 {
                     "host": host_block,
-                    "agent": agent_block,
-                    "agent_sig_valid": True,
+                    "agent": {
+                        **agent_block,
+                        "envelope": env_to_store,
+                    },
+                    "agent_sig_valid": agent_sig_valid,
                 }
             )
             print("Verified agent block from", signer_did)
@@ -430,9 +510,21 @@ class RubixMessageHandler:
             error_msg = "No valid envelope response"
             print("No valid envelope response")
 
+        # Save for NFT payload
         self.last_parts = verified
+        self.last_trust_issues = trust_issues or []
 
-        # Optional NFT execution on host
+        # Overall status: failed if any trust issue OR any invalid sig OR no verified
+        if not verified:
+            self.last_verification_status = "failed"
+        else:
+            all_valid = all(entry.get("agent_sig_valid", False) for entry in verified)
+            if self.last_trust_issues or not all_valid:
+                self.last_verification_status = "failed"
+            else:
+                self.last_verification_status = "ok"
+
+        # ✅ Still write to NFT even if status == "failed" or inject_fake == True
         if (
             self.enable_nft
             and execute_nft
@@ -452,7 +544,7 @@ class RubixMessageHandler:
 
         return {
             "messages": verified,
-            "trust_issues": trust_issues or None,
+            "trust_issues": self.last_trust_issues or None,
             "error": error_msg,
             "nft_result": nft_result,
         }
@@ -460,19 +552,32 @@ class RubixMessageHandler:
     def _build_nft_payload(self, remote_name: str) -> Dict[str, Any]:
         """
         Build the JSON that will be stored in the NFT.
+        Includes verification status + trust issues.
         """
         host_block = None
         responses: List[Dict[str, Any]] = []
+
         for entry in self.last_parts:
             if not host_block and entry.get("host"):
                 host_block = entry["host"]
             if entry.get("agent"):
-                responses.append(entry["agent"])
+                # deep copy to avoid mutating internal state
+                agent_entry = copy.deepcopy(entry["agent"])
+                env = agent_entry.get("envelope", {}) or {}
+                # overwrite / inject host_trust_issues with the FINAL host view
+                env["host_trust_issues"] = self.last_trust_issues
+                agent_entry["envelope"] = env
+                responses.append(agent_entry)
 
         return {
             "comment":  f"Pickleball scheduling with {remote_name}",
             "executor": "host_agent",
             "did":      self.did,
+            "verification": {
+                "status": self.last_verification_status,   # "ok" | "failed"
+                "trust_issues": self.last_trust_issues,    # list of strings
+                "inject_fake": self.inject_fake,           # whether tamper sim was ON
+            },
             "host":     host_block,
             "responses": responses,
         }

@@ -11,33 +11,29 @@ from .node_client import NodeClient
 
 
 class RubixTrustService:
-    """
-    Handles:
-      - RubixClient + Signer
-      - DID management
-      - Signing envelopes
-      - Verifying signatures via /api/verify-signature
-    """
-
     def __init__(
         self,
         alias: str,
         config_path: str = "",
         timeout: float = 300.0,
+        chain_url: Optional[str] = None,
+        node_config_path: Optional[str] = None,
     ) -> None:
-        node = NodeClient(alias=alias)
+        node = NodeClient(
+            alias=alias,
+            chain_url=chain_url,
+            config_path=node_config_path,
+        )
         self.base_url = node.get_base_url().rstrip("/")
         self.timeout = timeout
 
-        config_dir = ""
         if config_path == "":
             home_dir = Path.home()
-            config_dir =  os.path.join(home_dir, ".agentdna")
+            config_dir = os.path.join(home_dir, ".agentdna")
         else:
             config_dir = config_path
 
         client = RubixClient(node_url=self.base_url, timeout=timeout)
-        
         self.signer = Signer(rubixClient=client, alias=alias, config_path=config_dir)
         self.did = self.signer.did
 

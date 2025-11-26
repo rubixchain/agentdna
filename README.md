@@ -25,7 +25,7 @@ uv add agent-dna
 ```
 
 ## Architecture
-AgentDNA internally wraps several layers to keep agent developers free from Rubix-specific complexity.
+AgentDNA abstracts the complexity of identity, provenance and governance, giving developers a simple, unified interface for secure agent behavior
 
 ```
 ┌─────────────────────────┐
@@ -121,7 +121,7 @@ agentdna/
 ```
 
 ## Examples
-Full Host, ADK, and LangGraph examples can be found inside `examples/`.
+Full Host, ADK, and LangGraph examples can be found inside `https://github.com/rubixchain/agentdna/tree/main/examples`.
 
 ## License
 MIT
