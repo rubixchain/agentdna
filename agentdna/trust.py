@@ -14,11 +14,16 @@ class RubixTrustService:
     def __init__(
         self,
         alias: str,
+        api_key: str,
         config_path: str = "",
         timeout: float = 300.0,
         chain_url: Optional[str] = None,
         node_config_path: Optional[str] = None,
     ) -> None:
+        if api_key == "":
+            raise ValueError("API Key needs to be provided. Visit https://agentdna.io/ and join the" \
+            "Beta programme to get an API Key.")
+
         node = NodeClient(
             alias=alias,
             chain_url=chain_url,
@@ -33,7 +38,7 @@ class RubixTrustService:
         else:
             config_dir = config_path
 
-        client = RubixClient(node_url=self.base_url, timeout=timeout)
+        client = RubixClient(node_url=self.base_url, timeout=timeout, api_key=api_key)
         self.signer = Signer(rubixClient=client, alias=alias, config_path=config_dir)
         self.did = self.signer.did
 

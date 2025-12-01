@@ -163,12 +163,13 @@ class RubixMessageHandler:
     def __init__(
         self,
         alias: str,
+        api_key: str,
         token_filename: str = "token.txt",
         trust_service: Optional[RubixTrustService] = None,
         enable_nft: bool = True,
     ) -> None:
         # Trust layer (sign + verify + verify_message_payload)
-        self.trust = trust_service or RubixTrustService(alias=alias)
+        self.trust = trust_service or RubixTrustService(alias=alias, api_key=api_key)
         self.did = self.trust.did
         self.signer = self.trust.signer
 
