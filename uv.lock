@@ -1,10 +1,10 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [[package]]
 name = "agent-dna"
-version = "0.9.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "py-multiformats-cid" },
@@ -18,7 +18,7 @@ requires-dist = [
     { name = "py-multiformats-cid", specifier = ">=0.4.4" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "requests", specifier = ">=2.0.0" },
-    { name = "rubix-py" },
+    { name = "rubix-py", specifier = ">=0.7.0" },
 ]
 
 [[package]]
@@ -506,7 +506,7 @@ wheels = [
 
 [[package]]
 name = "rubix-py"
-version = "0.5.0"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bip32utils" },
@@ -518,9 +518,9 @@ dependencies = [
     { name = "py-cid" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/55/90/fc5114672475821c8577dae362f134901fcc6f93f19b5b79a1cf01f3e572/rubix_py-0.5.0.tar.gz", hash = "sha256:96fb948caa95d30c8a0aa1239a2339f3e110b94a4b7d4ce603f239d1241b0b74", size = 18971, upload-time = "2025-11-19T12:45:32.266Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/bd/c1d61bd0e9b8d35dfb19e6ce6a4608ceae488ac4ffcad538e79dccebedfc/rubix_py-0.7.0.tar.gz", hash = "sha256:e660c5476839ae9c77718b4887534ba176fd599be42cf04d6ddfdcca5439a1f3", size = 20126, upload-time = "2025-12-01T14:38:46.073Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/13/22e541f3eb979ece1b652079c6094ac34d82ada06b3c3d713966c54d2231/rubix_py-0.5.0-py3-none-any.whl", hash = "sha256:bca05defc9ce9231c377aa6050628efe1f4339d5461f726e9f90efda26e568bf", size = 18927, upload-time = "2025-11-19T12:45:30.834Z" },
+    { url = "https://files.pythonhosted.org/packages/df/6c/910e63e56cfd7f0132c2e91c38984faf9e9c26357c4b4fa6032e46fdb7a7/rubix_py-0.7.0-py3-none-any.whl", hash = "sha256:952ea8191a56d761df4897f985625f7dd8bdf448c460f83344f90ccfa336d576", size = 19630, upload-time = "2025-12-01T14:38:45.067Z" },
 ]
 
 [[package]]

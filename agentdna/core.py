@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .trust import RubixTrustService
 from .handler import RubixMessageHandler
@@ -27,17 +27,19 @@ class AgentDNA:
     def __init__(
         self,
         alias: str,
+        api_key: str,
         role: str = "remote",        # "host" or "remote"
-        token_filename: str = "token.txt",
+        token_filename: str = "token.txt"
     ) -> None:
         if role not in ("host", "remote"):
             raise ValueError("AgentDNA.role must be 'host' or 'remote'")
 
         self.role = role
-        self.trust = RubixTrustService(alias=alias)
+        self.trust = RubixTrustService(alias=alias,api_key=api_key)
 
         self.handler = RubixMessageHandler(
             alias=alias,
+            api_key=api_key,
             token_filename=token_filename,
             trust_service=self.trust,
             enable_nft=(role == "host"),
