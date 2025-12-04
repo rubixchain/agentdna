@@ -74,6 +74,14 @@ def load_nft_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str,
         "quorum_type": int(cfg_nft.get("quorum_type", 2)),
     }
 
+def get_nft_data_for_deployment(agent_alias) -> str:
+    if agent_alias == "":
+        raise ValueError("agent_alias must be provided")
+
+    nft_data = {
+        "agent_name": agent_alias
+    }
+    return json.dumps(nft_data)
 
 class RubixMessageHandler:
     """
@@ -422,7 +430,7 @@ class RubixMessageHandler:
         resp = self.signer.deploy_nft(
             nft_id=cid_str,        
             nft_value=self.nft_cfg["value"] or 0.001,
-            nft_data=self.nft_cfg["data"] or "init data",
+            nft_data=self.nft_cfg["data"] or get_nft_data_for_deployment(agent_alias=self.alias),
         )
         if resp.get("error"):
             raise RuntimeError(f"NFT deployment failed: {resp['error']}")
