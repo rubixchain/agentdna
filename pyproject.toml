@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-dna"
-version = "0.2.0"
+version = "0.3.0"
 description = "AgentDNA: Verifiable and Auditable AI Agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,7 +17,7 @@ authors = [
 dependencies = [
   "requests>=2.0.0",
   "python-dotenv>=1.0.0",
-  "rubix-py",
+  "rubix-py>=0.7.0",
   "py-multiformats-cid>=0.4.4",
 ]
 
