@@ -431,7 +431,7 @@ class RubixMessageHandler:
         resp = self.signer.deploy_nft(
             nft_id=cid_str,        
             nft_value=self.nft_cfg["value"] or 0.001,
-            nft_data=self.nft_cfg["data"] or get_nft_data_for_deployment(agent_alias=self.alias),
+            nft_data=get_nft_data_for_deployment(agent_alias=self.alias),
         )
         if resp.get("error"):
             raise RuntimeError(f"NFT deployment failed: {resp['error']}")
