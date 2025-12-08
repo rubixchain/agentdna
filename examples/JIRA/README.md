@@ -1,107 +1,75 @@
-# Jira MCP Agent – (Streamlit, Gemini, MCP)
+# Jira MCP Agent using AgentDNA 
 
-This project provides a complete **Jira AI Agent** using:
-
-- **Model Context Protocol** for tool execution  
-- **FastMCP** Jira MCP server (`server.py`)  
-- **Gemini** as the backbone LLM
-- **Streamlit UI** (`app.py`) for an interactive web interface   
-
-The agent allows you to query Jira issues, create tasks, transition workflow states, and add comments through a simple chat interface.
-
----
+This repository contains a fully integrated **Model Context Protocol (MCP)** server and client
+designed to work with **Jira Cloud**, enhanced by **AgentDNA** for end‑to‑end trust and 
+identity verification
 
 ## Features
 
-### Jira MCP Server (server.py)
-Implements Jira tools:
+- **Secure Jira automation** using MCP tools  
+- **End‑to‑end signed messages** via AgentDNA  
+- **Trust verification** on every server → client round‑trip  
+- **Audit trail** for every Jira tool execution  
+- **Streamlit‑based** UI with:
+  - Conversation history  
+  - One‑click history viewer   
 
-- `search_issues(jql, max_results=10)`
-- `get_issue(key)`
-- `create_issue(project_key, summary, description, issue_type="Task")`
-- `add_comment(issue_key, comment)`
-- `transition_issue(issue_key, transition_name)`
+## Components
 
-Implemented using `FastMCP`.
+### 1. MCP Server (`server.py`)
+Provides Jira tools:
 
-### Streamlit Chat UI (app.py)
-- Multi-turn UI with message history  
-- Calls the MCP agent for each user query (if found necessary)
-- Displays:
-  - Final agent answer  
-  - Which Jira MCP tool was used  
-  - JSON arguments   
+| Tool | Description |
+|------|-------------|
+| `search_issues` | JQL search via Jira v3 `/search/jql` |
+| `get_issue` | Retrieve issue details |
+| `create_issue` | Create a new issue (ADF description support) |
+| `add_comment` | Add comment to issue |
+| `transition_issue` | Move issue across workflow |
 
----
+Each tool receives:
+- `dna_envelope` (signed host message)
+- Performs Jira call
+- Returns **signed agent response** using AgentDNA
 
-## Folder Structure
+### 2. MCP Client / UI (`app.py`)
+- Uses **Gemini 2.5 Flash** for natural language interpretation  
+- Wraps tool calls inside **AgentDNA host envelopes**  
+- Verifies server responses  
+- Writes results to **Rubix NFT** for immutable logs 
 
-```
-JIRA/
-│
-├── app.py                  
-├── server.py               
-├── client.py               
-├── agent.py                
-├── .env.example                    
-└── README.md               
-```
 
----
-
-## Installation
-
-### 1. Install Dependencies
+## Environment Variables
 
 ```
-pip install streamlit google-genai python-dotenv "mcp[cli]"
+GEMINI_API_KEY
+AGENTDNA_API_KEY
+JIRA_BASE_URL
+JIRA_EMAIL
+JIRA_API_TOKEN
 ```
 
-### 2. Create a `.env` file
+## Running the UI
 
-```
-GEMINI_API_KEY=your_gemini_key
-JIRA_BASE_URL=https://yourdomain.atlassian.net
-JIRA_EMAIL=your_email@example.com
-JIRA_API_TOKEN=your_jira_api_token
-```
-
-## Running the Agent
-
-```
-cd JIRA
+```bash
 streamlit run app.py
 ```
 
-(auto) Open:  
-http://localhost:8501
+The MCP server is automatically launched per request via Python stdio.
 
-### Example Prompts
+## Examples & Usage
+Ask your AI assistant to:
+- **Listing** Issues: list my open issues
+- **Creating** a New Jira Issue: Create a new task in KAN.
+Summary: Add login button
+Description: Implement UI button for login
+- **Adding a Comment** to an Issue: Add a comment to KAN-12 saying "Reviewed and approved"
+- **Transitioning an Issue**: Move KAN-12 to In Progress
 
-- show my latest Jira issues
-- create a task in project TEST with summary "Bug from agent"
-- move AURA-2 to In Progress
-- add comment to TEST-10 saying work completed
+## Audit Viewer
 
----
+The UI includes **History Records** which fetches all states  
 
-## Architecture Overview
+## License
+MIT License 
 
-```
-Streamlit UI (app.py)
-        │
-        ▼
-Gemini LLM
-        │
-JSON decision
-        │
-        ▼
-MCP Client (app.py)
-        │
-        ▼
-MCP Server (server.py)
-        │
-Jira REST API
-```
-
----
