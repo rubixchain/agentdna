@@ -1,4 +1,3 @@
-# server.py
 import os
 import json
 import requests
@@ -13,7 +12,6 @@ from agentdna import AgentDNA
 from typing import Optional, Dict, Any
 
 def verify_host_envelope(dna_envelope: Optional[Dict[str, Any]]) -> None:
-    # TEMP: skip AgentDNA verification while debugging Jira
     return
 
 def _to_adf(text: str) -> dict:
@@ -97,7 +95,6 @@ async def _verify_host_envelope(
     if not dna_envelope:
         return None, None, None
 
-    # Normalise: if dict, encode to JSON string
     if isinstance(dna_envelope, dict):
         dna_envelope_str = json.dumps(dna_envelope)
         print("[SERVER] verify_host_envelope: converted dict → JSON string")
@@ -169,7 +166,6 @@ async def search_issues(
             {"tool": "search_issues", "jql": jql, "max_results": max_results}
         )
 
-    # New JQL endpoint (old /rest/api/3/search is removed)
     url = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
     payload = {
         "jql": jql,
@@ -242,7 +238,6 @@ async def create_issue(
     print("[SERVER] create_issue args → issue_type:", issue_type)
     print("[SERVER] create_issue args → dna_envelope TYPE:", type(dna_envelope))
 
-    # Verify host envelope (same as other tools)
     original_message, host_block, trust_issues = await _verify_host_envelope(dna_envelope)
 
     if original_message is None:
@@ -262,7 +257,7 @@ async def create_issue(
         "fields": {
             "project": {"key": project_key},
             "summary": summary,
-            "description": _to_adf(description),  # ADF wrapper
+            "description": _to_adf(description),  
             "issuetype": {"name": issue_type},
         }
     }
@@ -278,13 +273,12 @@ async def create_issue(
             err = resp.json()
         except Exception:
             err = resp.text
-        # Let host see the real Jira error text
         raise RuntimeError(f"Jira create_issue failed ({resp.status_code}): {err}")
 
     jira_payload = json.dumps(resp.json(), indent=2)
     print("[SERVER] create_issue: Jira response:", jira_payload)
 
-    # Return signed response like other tools
+    
     return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
 
 @mcp.tool()
