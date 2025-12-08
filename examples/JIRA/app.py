@@ -113,7 +113,6 @@ async def run_agent_turn(user_input: str):
     print("\n[HOST] ─────────────────────────────")
     print("[HOST] New turn, user_input:", repr(user_input))
 
-    # Ensure Jira env vars exist and will be forwarded to MCP server
     for var in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"):
         val = os.environ.get(var)
         print(f"[HOST] ENV {var} =", repr(val))
@@ -122,7 +121,6 @@ async def run_agent_turn(user_input: str):
 
     env_vars = dict(os.environ)
 
-    # Use the same Python that runs Streamlit; server.py calls mcp.run(transport="stdio")
     server_params = StdioServerParameters(
         command=sys.executable,
         args=["server.py"],
@@ -131,7 +129,7 @@ async def run_agent_turn(user_input: str):
 
     client = init_gemini()
     model_id = "gemini-2.5-flash"
-    print("[HOST] ✅ Gemini client initialised")
+    # print("[HOST] ✅ Gemini client initialised")
 
     async with stdio_client(server_params) as (read, write):
         print("[HOST] ✅ Connected to MCP server over stdio")
@@ -144,7 +142,6 @@ async def run_agent_turn(user_input: str):
             tool_names = [t.name for t in tools.tools]
             print("[HOST] Available MCP tools:", tool_names)
 
-            # 1) Decide: tool or direct answer
             decision_prompt = f"""{SYSTEM_PROMPT}
 
 User request: {user_input}
@@ -170,12 +167,10 @@ Return only one JSON object.
 
             print("[HOST] Parsed decision object:", decision)
 
-            # No tool needed
             if "tool" not in decision:
                 answer = decision.get("answer", decision_raw)
                 return answer.strip(), None, None, ""
 
-            # Tool requested
             tool_name = decision["tool"]
             tool_args = decision.get("args", {})
             print("[HOST] tool_name:", tool_name)
@@ -186,7 +181,6 @@ Return only one JSON object.
                 {k: type(v) for k, v in tool_args.items()},
             )
 
-            # Ensure max_results is present & int for search_issues
             if tool_name == "search_issues":
                 if "max_results" not in tool_args:
                     tool_args["max_results"] = 10
@@ -215,27 +209,17 @@ Return only one JSON object.
                 state={"channel": "mcp_jira"},
             )
             dna_envelope = built["host_json"]
-            print("[HOST] dna_envelope (raw) type:", type(dna_envelope))
 
             if isinstance(dna_envelope, dict):
                 dna_envelope = json.dumps(dna_envelope)
-            print("[HOST] dna_envelope (final) type:", type(dna_envelope))
-            print("[HOST] dna_envelope (snippet):", str(dna_envelope)[:200])
 
             tool_args_with_dna = {
                 **tool_args,
                 "dna_envelope": dna_envelope,
             }
-            print("[HOST] tool_args_with_dna:", tool_args_with_dna)
-            print(
-                "[HOST] tool_args_with_dna types:",
-                {k: type(v) for k, v in tool_args_with_dna.items()},
-            )
-
             print(f"[HOST] Calling MCP tool '{tool_name}' …")
             tool_result = await session.call_tool(tool_name, arguments=tool_args_with_dna)
             print("[HOST] ✅ MCP tool call completed")
-            print("[HOST] Raw tool_result object:", tool_result)
 
             parts: list[str] = []
             for block in tool_result.content:
@@ -246,13 +230,12 @@ Return only one JSON object.
             tool_output_text = "\n".join(parts)
             print("[HOST] tool_output_text (snippet):", tool_output_text[:300])
 
-            # 4) Verify MCP response with AgentDNA.handle()
             print("[HOST] Verifying tool response with AgentDNA.handle()…")
             trust_result = await dna.handle(
                 resp_parts=[{"text": tool_output_text}],
                 original_task=json.dumps(host_msg),
                 remote_name="jira_server",
-                execute_nft=True,  # 👈 this is what writes to the NFT
+                execute_nft=True,  
             )
             print("[HOST] trust_result:", trust_result)
 
@@ -263,8 +246,6 @@ Return only one JSON object.
             print("[HOST] verification_status:", verification_status)
 
             trust_issues = trust_result.get("trust_issues")
-
-            # 5) Ask Gemini for final answer, including trust status
             final_prompt = f"""
 The user asked: {user_input}
 
@@ -309,7 +290,6 @@ st.set_page_config(page_title="Jira MCP Agent")
 
 st.sidebar.subheader("Controls")
 
-# --- Inject Fake toggle (tamper simulation) ---
 if "inject_fake" not in st.session_state:
     st.session_state.inject_fake = False
 
@@ -321,14 +301,10 @@ st.sidebar.checkbox(
 handler = getattr(dna, "handler", None)
 if handler is not None:
     handler.inject_fake = bool(st.session_state.inject_fake)
-    # st.sidebar.write(
-    #     f"Trust mode: {'🧪 Tamper simulation ON' if handler.inject_fake else '✅ Normal verification'}"
-    # )
 
-# NFT token info
 nft_id = get_nft_token_from_host()
 if not nft_id:
-    st.sidebar.write("⚠️ No NFT token available (dna.handler.nft_token not set)")
+    st.sidebar.write("No NFT token available (dna.handler.nft_token not set)")
 
 latest_only = False
 
@@ -339,7 +315,6 @@ if st.sidebar.button("History Records"):
         with st.spinner("Fetching NFT data…"):
             nft_resp = fetch_nft_data(nft_id, latest_only)
 
-        # Decode inner NFTData JSON so you don’t see all the backslashes
         def decode_nft_state(state: dict) -> dict:
             state = dict(state)  # shallow copy
             nft_data = state.get("NFTData")
@@ -347,7 +322,6 @@ if st.sidebar.button("History Records"):
                 try:
                     state["NFTData"] = json.loads(nft_data)
                 except json.JSONDecodeError:
-                    # leave as-is if it’s not valid JSON
                     pass
             return state
 
@@ -356,7 +330,7 @@ if st.sidebar.button("History Records"):
         elif isinstance(nft_resp, dict):
             decoded = decode_nft_state(nft_resp)
         else:
-            decoded = nft_resp  # fallback
+            decoded = nft_resp 
 
         if "messages" not in st.session_state:
             st.session_state.messages = []
