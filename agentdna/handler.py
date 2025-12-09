@@ -49,6 +49,14 @@ def _default_config_path() -> Path:
     # Same logic as NodeClient
     return Path(__file__).resolve().parent.parent / "config.json"
 
+def check_if_agent_id_exists(agent_id: str, agent_info: List[dict]) -> bool:
+    """
+    Check if the given agent_id exists in the agent_info dictionary.
+    """
+    for agent in agent_info:
+        if agent.get("agent_id", "") == agent_id:
+            return True
+    return False
 
 
 def load_nft_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
@@ -172,7 +180,7 @@ class RubixMessageHandler:
         self,
         alias: str,
         api_key: str,
-        token_filename: str = "token.txt",
+        token_filename: str = "agent_info.json",
         trust_service: Optional[RubixTrustService] = None,
         enable_nft: bool = True,
     ) -> None:
@@ -402,44 +410,86 @@ class RubixMessageHandler:
         return response
 
     def _load_or_deploy_nft(self) -> str:
-        if not self.token_path:
-            raise RuntimeError("NFT token path not initialized (enable_nft=False?)")
-
-        if self.token_path.exists():
-            token = self.token_path.read_text(encoding="utf-8").strip()
-            if token:
-                print("ℹ️ Using existing NFT token:", token)
-                return token
-            else:
-                print(f"⚠️ {self.token_path} is empty, deploying new NFT…")
-        else:
-            print(f"⚠️ token.txt not found at {self.token_path}, deploying new NFT…")
-
-        text = f"{self.alias}-{uuid.uuid4()}"
-        digest = hashlib.sha256(text.encode("utf-8")).digest()
+        agent_id_structure = f"{self.signer.did}.{self.alias}" # Agent ID: DID + alias
+        digest = hashlib.sha256(agent_id_structure.encode("utf-8")).digest()
         multihash_bytes = bytes([0x12, len(digest)]) + digest
         cid = CIDv0(multihash_bytes)
-        cid_str = cid.encode().decode("utf-8")
+        agent_id = cid.encode().decode("utf-8")
 
-        print("CIDv0:", cid_str)  
+        if not self.token_path:
+            raise RuntimeError("Agent info path not initialized (enable_nft=False?)")
 
-        print("Creating a new NFT")
-        print("nft_value: ", self.nft_cfg["value"] or 0.001)
-        print("nft_data: ", self.nft_cfg["data"] or "init data")
+        if self.token_path.exists():
+            f = open(self.token_path, "r", encoding="utf-8")
+            try:
+                agent_info = json.load(f)
+                if check_if_agent_id_exists(agent_id, agent_info):
+                    print("Using existing Agent ID from: ", self.token_path)
+                    f.close()
+                    return agent_id
+                else:
+                    f.close() # Close the file before redeploying
+                    print(f"Agent ID not found in {self.token_path}, deploying new Agent")
 
+                    resp = self.signer.deploy_nft(
+                        nft_id=agent_id,        
+                        nft_value=self.nft_cfg["value"] or 5,
+                        nft_data=get_nft_data_for_deployment(agent_alias=self.alias),
+                    )
 
-        resp = self.signer.deploy_nft(
-            nft_id=cid_str,        
-            nft_value=self.nft_cfg["value"] or 0.001,
-            nft_data=get_nft_data_for_deployment(agent_alias=self.alias),
-        )
-        if resp.get("error"):
-            raise RuntimeError(f"NFT deployment failed: {resp['error']}")
+                    if resp.get("error"):
+                        raise RuntimeError(f"NFT deployment failed: {resp['error']}")
 
-        nft_address = resp["nft_address"]
-        self.token_path.write_text(nft_address, encoding="utf-8")
-        print("🚀 Deployed new NFT:", nft_address)
-        return nft_address
+                    nft_address = resp["nft_address"]
+                    if nft_address is None:
+                        raise RuntimeError("unexpected error during Agent deployment: unable to fetch Agent ID")
+
+                    agent_info.append({
+                        "agent_id": nft_address, 
+                        "agent_did": self.signer.did,
+                        "agent_name": self.alias,
+                    })
+
+                    new_f = open(self.token_path, "w", encoding="utf-8")
+                    try:
+                        json.dump(agent_info, new_f, indent=2)
+                        print("Updated Agent info in: ", self.token_path)
+                    finally:
+                        new_f.close()
+                        return nft_address
+            except Exception as e:
+                raise RuntimeError(f"Failed to read agent info: {e}")
+        else:
+            print(f"agent_info.json not found at {self.token_path}, deploying new Agent")
+
+            resp = self.signer.deploy_nft(
+                nft_id=agent_id,        
+                nft_value=self.nft_cfg["value"] or 5,
+                nft_data=get_nft_data_for_deployment(agent_alias=self.alias),
+            )
+            if resp.get("error"):
+                raise RuntimeError(f"NFT deployment failed: {resp['error']}")
+
+            nft_address = resp["nft_address"]
+            if nft_address is None:
+                raise RuntimeError("unexpected error during Agent deployment: unable to fetch Agent ID")
+
+            # Create agent_info.json file and store the nft_id
+            agent_info = [
+                {
+                    "agent_id": nft_address, 
+                    "agent_did": self.signer.did,
+                    "agent_name": self.alias,
+                }
+            ]
+            f = open(self.token_path, "w", encoding="utf-8")
+            try:
+                json.dump(agent_info, f, indent=2)
+                print("Stored Agent info in: ", self.token_path)
+            finally:
+                f.close()
+
+            return nft_address
 
     # ======================================================================
     # Internal: host handling remote responses

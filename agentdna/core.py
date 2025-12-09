@@ -29,7 +29,7 @@ class AgentDNA:
         alias: str,
         api_key: str,
         role: str = "remote",        # "host" or "remote"
-        token_filename: str = "token.txt"
+        token_filename: str = "agent_info.json",
     ) -> None:
         if role not in ("host", "remote"):
             raise ValueError("AgentDNA.role must be 'host' or 'remote'")
