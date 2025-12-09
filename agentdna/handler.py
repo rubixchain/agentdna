@@ -456,7 +456,8 @@ class RubixMessageHandler:
                         print("Updated Agent info in: ", self.token_path)
                     finally:
                         new_f.close()
-                        return nft_address
+
+                    return nft_address
             except Exception as e:
                 raise RuntimeError(f"Failed to read agent info: {e}")
         else:
@@ -629,7 +630,7 @@ class RubixMessageHandler:
                 responses.append(agent_entry)
 
         return {
-            "comment":  f"Pickleball scheduling with {remote_name}",
+            "comment":  f"Agent scheduling with {remote_name}",
             "executor": "host_agent",
             "did":      self.did,
             "verification": {
