@@ -29,7 +29,6 @@ dna = AgentDNA(alias="jira_host", role="host", api_key=AGENTDNA_API_KEY)
 print("[HOST] ✅ AgentDNA DID:", dna.trust.did)
 print("[HOST] ✅ AgentDNA base URL:", dna.trust.base_url)
 
-# Use NodeClient to discover the Rubix node base URL (same pattern as pickleball UI)
 node = NodeClient(alias="jira_host")
 DEFAULT_BASE_URL = node.get_base_url()
 print("[HOST] ✅ Rubix node base URL:", DEFAULT_BASE_URL)
@@ -129,7 +128,7 @@ async def run_agent_turn(user_input: str):
 
     client = init_gemini()
     model_id = "gemini-2.5-flash"
-    # print("[HOST] ✅ Gemini client initialised")
+
 
     async with stdio_client(server_params) as (read, write):
         print("[HOST] ✅ Connected to MCP server over stdio")
@@ -217,9 +216,18 @@ Return only one JSON object.
                 **tool_args,
                 "dna_envelope": dna_envelope,
             }
-            print(f"[HOST] Calling MCP tool '{tool_name}' …")
+
+            from_streamlit = getattr(__import__("streamlit"), "session_state", None)
+            inject_fake_flag = False
+            if from_streamlit is not None:
+                inject_fake_flag = bool(from_streamlit.get("inject_fake", False))
+
+            if inject_fake_flag:
+                tool_args_with_dna["inject_fake"] = True
+
+            print(f"[HOST] Calling MCP tool '{tool_name}' with args:", tool_args_with_dna)
             tool_result = await session.call_tool(tool_name, arguments=tool_args_with_dna)
-            print("[HOST] ✅ MCP tool call completed")
+            print("[HOST] MCP tool call completed")
 
             parts: list[str] = []
             for block in tool_result.content:

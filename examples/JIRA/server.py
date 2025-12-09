@@ -123,13 +123,14 @@ def _build_signed_response(
     jira_payload: str,
     host_block: Optional[Dict[str, Any]],
     trust_issues: Optional[list],
+    inject_fake: bool = False,
 ) -> str:
-    """
-    Sign the Jira payload + host block into a combined JSON
-    that the host can verify with AgentDNA.handle().
-    """
     if original_message is None:
         original_message = jira_payload
+
+    if inject_fake:
+        print("[SERVER] Simulating tampering: changing original_message before signing")
+        original_message = (original_message or "") + " [SERVER_TAMPERED]"
 
     built = dna.build(
         original_message=original_message,
@@ -138,11 +139,16 @@ def _build_signed_response(
         extra={"host_trust_issues": trust_issues},
     )
 
-    combined = built["combined_json"]
-    print("[SERVER] _build_signed_response: combined_json snippet:",
-          combined[:180], "...")
-    return combined
+    print("[SERVER] dna.build returned:", built)
+    print("[SERVER] dna.build keys:", getattr(built, "keys", lambda: [])())
+ 
+    if isinstance(built, dict) and "combined_json" in built:
+        return built["combined_json"]
 
+    # Fallbacks (shouldn't normally hit these)
+    if isinstance(built, str):
+        return built
+    return json.dumps(built)
 
 # ─────────────────────────────
 # MCP tools (DNA-aware)
@@ -153,6 +159,7 @@ async def search_issues(
     jql: str,
     max_results: int = 10,
     dna_envelope: dict | str | None = None,
+    inject_fake: bool = False, 
 ) -> str:
     print("\n[SERVER] === search_issues CALLED ===")
     print("[SERVER] search_issues args → jql:", jql, "TYPE:", type(jql))
@@ -194,13 +201,14 @@ async def search_issues(
 
     jira_payload = json.dumps(issues, indent=2)
     print("[SERVER] search_issues: returning", len(issues), "issues")
-    return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
+    return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
 
 
 @mcp.tool()
 async def get_issue(
     key: str,
     dna_envelope: dict | str | None = None,
+    inject_fake: bool = False, 
 ) -> str:
     print("\n[SERVER] === get_issue CALLED ===")
     print("[SERVER] get_issue args → key:", key, "TYPE:", type(key))
@@ -218,10 +226,8 @@ async def get_issue(
     resp.raise_for_status()
     jira_payload = json.dumps(resp.json(), indent=2)
 
-    return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
+    return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
 
-
-# server.py
 
 @mcp.tool()
 async def create_issue(
@@ -230,6 +236,7 @@ async def create_issue(
     description: str,
     issue_type: str = "Task",
     dna_envelope: dict | str | None = None,
+    inject_fake: bool = False, 
 ) -> str:
     print("\n[SERVER] === create_issue CALLED ===")
     print("[SERVER] create_issue args → project_key:", project_key)
@@ -278,14 +285,15 @@ async def create_issue(
     jira_payload = json.dumps(resp.json(), indent=2)
     print("[SERVER] create_issue: Jira response:", jira_payload)
 
-    
-    return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
+    return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
+
 
 @mcp.tool()
 async def add_comment(
     issue_key: str,
     comment: str,
     dna_envelope: dict | str | None = None,
+    inject_fake: bool = False, 
 ) -> str:
     print("\n[SERVER] === add_comment CALLED ===")
 
@@ -306,14 +314,14 @@ async def add_comment(
     resp.raise_for_status()
     jira_payload = json.dumps(resp.json(), indent=2)
 
-    return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
-
+    return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
 
 @mcp.tool()
 async def transition_issue(
     issue_key: str,
     transition_name: str,
     dna_envelope: dict | str | None = None,
+    inject_fake: bool = False, 
 ) -> str:
     print("\n[SERVER] === transition_issue CALLED ===")
 
@@ -351,8 +359,8 @@ async def transition_issue(
             },
             indent=2,
         )
-        return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
-
+        return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
+    
     do_url = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/transitions"
     payload = {"transition": {"id": transition_id}}
     print("[SERVER] transition_issue: Jira URL (do transition):", do_url)
@@ -366,8 +374,7 @@ async def transition_issue(
         indent=2,
     )
 
-    return _build_signed_response(original_message, jira_payload, host_block, trust_issues)
-
+    return _build_signed_response(original_message, jira_payload, host_block, trust_issues, inject_fake=inject_fake)
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
