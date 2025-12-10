@@ -80,7 +80,7 @@ Responsible for:
 ```python
 from agentdna import AgentDNA
 
-dna = AgentDNA(alias="<agent alias>", role="<host/remote>")
+dna = AgentDNA(alias="<agent alias>", role="<host/remote>", api_key="<API Key for AgentDNA Backend>")
 
 ```
 ### **Remote Agents**
