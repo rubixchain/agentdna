@@ -21,10 +21,9 @@ def ensure_agent_nft_artifact():
     """
     file_path = os.getenv("NFT_ARTIFACT_PATH", "agent_nft_artifact")
 
-    # Create file if missing
     if not os.path.exists(file_path):
         with open(file_path, "w") as f:
-            f.write("")  # empty file
+            f.write("")  
             
 
     return file_path
@@ -38,15 +37,13 @@ def ensure_agent_nft_metadata():
     """
     file_path = os.getenv("NFT_METADATA_PATH", "agent_nft_metadata")
 
-    # Create file if missing
     if not os.path.exists(file_path):
         with open(file_path, "w") as f:
-            f.write("")  # empty file
+            f.write("")  
 
     return file_path
 
 def _default_config_path() -> Path:
-    # Same logic as NodeClient
     return Path(__file__).resolve().parent.parent / "config.json"
 
 def check_if_agent_id_exists(agent_id: str, agent_info: List[dict]) -> bool:
@@ -198,7 +195,6 @@ class RubixMessageHandler:
 
         self.last_trust_issues: List[str] = []
         self.last_verification_status: str = "unknown"  # "ok" | "failed" | "unknown"
-        self.inject_fake: bool = False
 
 
         # Where to store NFT token (host project, not site-packages)
@@ -544,16 +540,6 @@ class RubixMessageHandler:
             agent_sig_valid = True
             env_to_store = copy.deepcopy(env_verified)
 
-            if self.inject_fake:
-                env_to_store["original_message"] = (
-                    (env_to_store.get("original_message") or "") + " [TAMPERED]"
-                )
-                agent_sig_valid = False
-                trust_issues.append(
-                    "Tampering: original_message changed"
-                )
-                print("⚠️ Tampering with original message")
-
             verified.append(
                 {
                     "host": host_block,
@@ -570,11 +556,9 @@ class RubixMessageHandler:
             error_msg = "No valid envelope response"
             print("No valid envelope response")
 
-        # Save for NFT payload
         self.last_parts = verified
         self.last_trust_issues = trust_issues or []
 
-        # Overall status: failed if any trust issue OR any invalid sig OR no verified
         if not verified:
             self.last_verification_status = "failed"
         else:
@@ -584,7 +568,6 @@ class RubixMessageHandler:
             else:
                 self.last_verification_status = "ok"
 
-        # ✅ Still write to NFT even if status == "failed" or inject_fake == True
         if (
             self.enable_nft
             and execute_nft
@@ -621,10 +604,8 @@ class RubixMessageHandler:
             if not host_block and entry.get("host"):
                 host_block = entry["host"]
             if entry.get("agent"):
-                # deep copy to avoid mutating internal state
                 agent_entry = copy.deepcopy(entry["agent"])
                 env = agent_entry.get("envelope", {}) or {}
-                # overwrite / inject host_trust_issues with the FINAL host view
                 env["host_trust_issues"] = self.last_trust_issues
                 agent_entry["envelope"] = env
                 responses.append(agent_entry)
@@ -634,9 +615,8 @@ class RubixMessageHandler:
             "executor": "host_agent",
             "did":      self.did,
             "verification": {
-                "status": self.last_verification_status,   # "ok" | "failed"
-                "trust_issues": self.last_trust_issues,    # list of strings
-                "inject_fake": self.inject_fake,           # whether tamper sim was ON
+                "status": self.last_verification_status,  
+                "trust_issues": self.last_trust_issues,    
             },
             "host":     host_block,
             "responses": responses,
