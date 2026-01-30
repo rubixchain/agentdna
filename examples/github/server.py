@@ -33,12 +33,16 @@ load_dotenv()
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 AGENTDNA_API_KEY = os.environ.get("AGENTDNA_API_KEY")
+MCP_TOOL_NAME = os.environ.get("MCP_TOOL_NAME")
 
 if not GITHUB_TOKEN:
     raise RuntimeError("Set GITHUB_TOKEN environment variable")
 
 if not AGENTDNA_API_KEY:
     raise RuntimeError("Set AGENTDNA_API_KEY environment variable")
+
+if not MCP_TOOL_NAME:
+    raise RuntimeError("Set MCP_TOOL_NAME environment variable")
 
 # 🔒 FIXED REPO CONFIG
 REPO_OWNER = "SynapzeCore"
@@ -50,7 +54,9 @@ API_BASE = "https://api.github.com"
 
 mcp = FastMCP("GitHubMCP")
 
-dna = AgentDNA(alias="github_server_1", role="remote", api_key=AGENTDNA_API_KEY)
+
+
+dna = AgentDNA(alias=MCP_TOOL_NAME, role="remote", api_key=AGENTDNA_API_KEY)
 print("[SERVER] ✅ GitHub MCP server DID:", dna.trust.did)
 print("[SERVER] ✅ Repo URL:", REPO_URL)
 

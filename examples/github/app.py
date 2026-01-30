@@ -16,13 +16,21 @@ AGENTDNA_API_KEY = os.environ.get("AGENTDNA_API_KEY")
 if not AGENTDNA_API_KEY:
     raise RuntimeError("Missing AGENTDNA_API_KEY")
 
+HOST_AGENT_NAME = os.environ.get("HOST_AGENT_NAME")
+if not HOST_AGENT_NAME:
+    raise RuntimeError("Missing HOST_AGENT_NAME")
+
+MCP_TOOL_NAME = os.environ.get("MCP_TOOL_NAME")
+if not MCP_TOOL_NAME:
+    raise RuntimeError("Missing MCP_TOOL_NAME")
+
 REPO_OWNER = "SynapzeCore"
 REPO_NAME = "sample-repo"
 REPO_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}"
 
-dna = AgentDNA(alias="github_agent_2", role="host", api_key=AGENTDNA_API_KEY)
+dna = AgentDNA(alias=HOST_AGENT_NAME, role="host", api_key=AGENTDNA_API_KEY)
 
-node = NodeClient(alias="github_agent_2")
+node = NodeClient(alias=HOST_AGENT_NAME)
 DEFAULT_BASE_URL = node.get_base_url()
 
 SYSTEM_PROMPT = """
@@ -147,7 +155,7 @@ async def run_agent_turn(user_input: str):
             trust_result = await dna.handle(
                 resp_parts=[{"text": tool_output_text}],
                 original_task=json.dumps(host_message),
-                remote_name="github_server",
+                remote_name=MCP_TOOL_NAME,
             )
             
             handler = getattr(dna, "handler", None)
@@ -228,6 +236,11 @@ st.markdown("---")
 
 query = st.text_area("Ask the Github Agent to do something:")
 
+example_prompt = (
+    'Create an issue with title "Bug: Login fails" '
+    'and the description should be "Users are unable to log in using OAuth."'
+)
+
 if st.button("Send") and query.strip():
     st.session_state.messages.append({"role": "user", "content": query})
 
@@ -238,3 +251,5 @@ if st.button("Send") and query.strip():
 
     st.rerun()
 
+st.markdown("### Example Prompt")
+st.code(example_prompt, language="text")
