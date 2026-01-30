@@ -22,8 +22,8 @@ This demo represents the use of `agentdna` package for a simple Agent to Github 
         Unix (Ubuntu/Mac OS):
         ```
         # Provide permission to the activate script
-        chmod +x ./venv/Scripts/activate 
-        ./venv/Scripts/activate
+        chmod +x ./venv/bin/activate 
+        ./venv/bin/activate
         ```
 
 - Run the following to install dependencies:
