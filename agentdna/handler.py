@@ -626,11 +626,13 @@ class RubixMessageHandler:
                 env = agent_entry.get("envelope", {}) or {}
                 # overwrite / inject host_trust_issues with the FINAL host view
                 env["host_trust_issues"] = self.last_trust_issues
+                agent_entry["agent_did"] = agent_entry.get("agent")
+                agent_entry["agent"] = remote_name
                 agent_entry["envelope"] = env
                 responses.append(agent_entry)
 
         return {
-            "comment":  f"Agent scheduling with {remote_name}",
+            "comment":  f"Agent communication initiation to {remote_name}",
             "executor": "host_agent",
             "did":      self.did,
             "verification": {
