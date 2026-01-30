@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-dna"
-version = "0.3.0"
+version = "0.3.1"
 description = "AgentDNA: Verifiable and Auditable AI Agents"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
 
 authors = [
