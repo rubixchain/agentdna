@@ -236,6 +236,11 @@ st.markdown("---")
 
 query = st.text_area("Ask the Github Agent to do something:")
 
+example_prompt = (
+    'Create an issue with title "Bug: Login fails" '
+    'and the description should be "Users are unable to log in using OAuth."'
+)
+
 if st.button("Send") and query.strip():
     st.session_state.messages.append({"role": "user", "content": query})
 
@@ -246,3 +251,5 @@ if st.button("Send") and query.strip():
 
     st.rerun()
 
+st.markdown("### Example Prompt")
+st.code(example_prompt, language="text")
