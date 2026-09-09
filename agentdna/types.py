@@ -116,9 +116,10 @@ def dump_envelope(envelope: Envelope | None) -> dict | None:
 
     return result
 
+
 def load_workflow(data: dict | IntentWorkflow) -> IntentWorkflow:
     """
-    Converts a raw dictionary (from JSON serialization) back into 
+    Converts a raw dictionary (from JSON serialization) back into
     an IntentWorkflow object.
     """
     if isinstance(data, IntentWorkflow):
@@ -153,6 +154,7 @@ def load_envelope(data: dict | Envelope | None) -> Envelope | None:
         data_copy["parent_envelope"] = None
 
     return Envelope(**data_copy)
+
 
 @dataclass
 class IntentWorkflow:
@@ -270,10 +272,14 @@ class ActorRegistryEntry:
     actor_name: str
     actor_card_id: str
 
+
 class AgentNotWhitelistedError(Exception):
     """Raised when an agent is not whitelisted in the Admin server."""
+
     pass
+
 
 class CoCAVerificationError(Exception):
     """Raised when a CoCA verification fails."""
+
     pass

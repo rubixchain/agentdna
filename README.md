@@ -61,19 +61,24 @@ Every Envelope is digitally signed by the sender and references its parent Envel
   "epoch": "Unix timestamp of Envelope formation",
   "status_code": "Represents the status code for errors occured while the envelope was formed",
   "signature": "Hex encoded signature by the actor building the envelope",
-  "parent_envelope": "List of Envelopes upon which the current envelope is being built upon"
+  "parent_envelope": "List of Envelopes upon which the current envelope is being built upon",
+  "hash": "Hash of the Envelope's content which is signed and verified"
 }
 ```
 
-Following are the supported status code:
+Following status codes are set:
 
 | Codes      | Description                                             |
 | ---------- | ------------------------------------------------------- |
 | 1000       | No issues found                                         |
+| 1001       | Agent not whitelisted                                   |
+| 1002       | Error while performing Agent whitelist verification     |
 | 2001       | Envelope verification failed under `light` mode         |
 | 2002       | Envelope verification failed under `heavy` mode         |
 | 2003       | Envelope verification failed under `boundary` mode      |
-
+| 2999       | CoCA verification failure for unknown reason            |
+| 4001       | MCP Tool Execution error. A special case where the workflow isn't interrupted |
+| 4002       | Generic Middleware Execution error                      |
 ---
 
 ### IntentWorkflow
@@ -81,6 +86,8 @@ Following are the supported status code:
 An `IntentWorkflow` represents the complete lifecycle of an intent.
 
 Rather than storing a sequence of events, AgentDNA stores the latest `Envelope`. Every Envelope recursively references its parent, allowing the entire chain of custody to be reconstructed from a single object.
+
+IntentWorkflow is a DTO (Data Transfer Object) that is passed between Actors of the Agentic Workflow.
 
 For example:
 
@@ -95,14 +102,16 @@ For example:
     "to": "coordinator_actor_id",
     "payload": "{\"status\":\"completed\"}",
     "epoch": 1782668370,
-    "status_code": {},
+    "status_code": 1000,
+    "hash": "<Hash of the Envelope's content>",
     "signature": "...",
     "parent_envelope": [{
       "from": "coordinator_actor_id",
       "to": "worker_actor_id",
       "payload": "{\"action\":\"produce_task_spec\"}",
       "epoch": 1782668362,
-      "status_code": {},
+      "hash": "<Hash of the Envelope's content>",
+      "status_code": 1000,
       "signature": "...",
       "parent_envelope": [{
         "... previous envelope ..."
@@ -176,9 +185,9 @@ To install agentdna, run the following:
 pip install agent-dna
 ```
 
-Let's walk through a simple example involving a Human and a single AI Agent.
+Let's start with a simple example involving a human and a single AI agent.
 
-Suppose Alice wants an AI Assistant to summarize a document.
+Suppose Alice wants an AI assistant to summarize a document.
 
 ```text
 Alice (Human)
@@ -192,17 +201,17 @@ Assistant Agent
 Alice (Human)
 ```
 
-Although this appears to be a simple request, several important questions arise:
+Although this is a simple interaction, several questions arise:
 
-* How does the Assistant know the request genuinely came from Alice?
-* How can the Assistant verify that the request has not been modified?
-* How can Alice later prove what was requested and what response was returned?
+- How does the assistant verify that the request actually originated from Alice?
+- How can the assistant determine whether the request was modified in transit?
+- How can Alice later establish what was requested and what response was produced?
 
-AgentDNA answers these questions through three operations: `build()`, `handle()` and `create_workflow_provenance()`.
+AgentDNA addresses these questions through three core operations: `build()`, `handle()` and `record()`.
 
 ### Initialize the participants
 
-Every participant in a workflow is represented by an `AgentDNA` instance.
+Each participant in a workflow is represented by an `AgentDNA` instance.
 
 For this example, we'll create one Human and one AI Agent.
 
@@ -212,13 +221,16 @@ from agentdna.core import AgentDNA
 user = AgentDNA(
     name="Alice",
     type="user",
-    api_key="<Optional, only required for Beta (Explained later)>"
+    api_key="<Optional, only required for Beta (Explained later)>",
+    provenance_layer_url = "<Optional, Provenance Layer URL>"
 )
 
 assistant = AgentDNA(
     name="Assistant",
     type="agent",
-    api_key="<Optional, only required for Beta (Explained later)>"
+    api_key="<Optional, only required for Beta (Explained later)>",
+    provenance_layer_url = "<Optional, Provenance Layer URL>",
+    admin_server_url="<Optional, Admin Server URL. Used for agent whitelist verification>"
 )
 ```
 
@@ -226,62 +238,71 @@ Supported Actor types are:
 
 * `user`
 * `agent`
-* `app`
+* `tool`
 
-### Step 1. Build the initial workflow
+### Securing Agent-User Interaction
 
-Alice creates the first signed `Envelope` and sends it to the Assistant.
+**Step 1. Build the initial workflow**
+
+Alice creates the first signed `Envelope` containing the user's request.
 
 ```python
-workflow = human.build(
+workflow = user.build(
     payload='{"request":"Summarize this document."}'
 )
 ```
 
-The workflow now contains a single signed Envelope.
+The `workflow` now contains the initial signed Envelope.
 
 ```text
 Alice ─────────▶ Assistant
 ```
 
-### Step 2. Verify before acting
+**Step 2. Verify before acting**
 
 Before processing the request, the Assistant verifies the workflow.
 
 ```python
-result = assistant.verify(workflow)
+from agentdna.error import RESULT_OK
 
-if not result:
-    return
+verification_code = assistant.verify(workflow)
+
+if verification_code != RESULT_OK:
+    invalid_workflow_record = assistant.build(
+        payload="invalid workflow received",
+        verification_code=verification_code
+    )
+
+    # Record the details on the immutable Provenance Layer 
+    assistant.record(invalid_workflow_record)
+    
+    raise RuntimeError("Invalid AgentDNA workflow")
 ```
 
 This verifies the chain of custody and evaluates whether the request should be accepted according to the Assistant's policy.
 
-Only after successful verification should the Assistant perform its work. Else, they can return the response back to the user.
+Only after successful verification should the Assistant perform its work. When verification fails, the failure should be recorded before the request is rejected.
 
-### Step 3. Build the response
+**Step 3. Build the response**
 
-Once the summary has been generated, the Assistant appends its own signed Envelope to the existing workflow.
+After generating the summary, the Assistant appends a new signed `Envelope` to the existing workflow.
 
 ```python
 workflow = assistant.build(
     payload='{"summary":"..."}',
-    previous_workflows=workflow,
+    previous_workflows=workflow_from_last_step,
 )
 ```
-
-The workflow now contains two linked Envelopes.
+_
+The final workflow has the following structure:
 
 ```text
-Alice ─────────▶ Assistant
-                     │
-                     ▼
-Alice ◀──────── Assistant
+Alice ─────────▶ Assistant ─────────▶ Alice
 ```
 
 Notice that the original request is preserved. The Assistant simply appends a new signed Envelope, extending the chain of custody.
 
-### Step 4. Store the completed workflow
+**Step 4. Store the completed workflow**
 
 After the interaction is complete, the workflow can be committed to the Provenance Layer.
 
@@ -309,9 +330,215 @@ Perform work
 Forward workflow
 ```
 
-By the time the workflow completes, the nested Envelopes form a verifiable chain of custody that records every participant, every decision and every interaction from the original request to the final response. Remember, creation of workflow provenance encompases both success and failures between Actors.
+As the workflow propagates between actors, each actor appends a signed `Envelope`. The resulting `IntentWorkflow` provides a verifiable record of the interactions and decisions that occurred along the execution path.
 
-For more detailed implementations, you can refer the examples [here](./examples)
+Workflow provenance is created for both successful and failed interactions between actors.
+
+The same mechanism used to secure human-agent communication can also be applied to agent-agent communication.
+
+### Securing Agent-Resource Interaction
+
+Agentic applications frequently allow an agent to access external resources on behalf of a user. This introduces additional security risks: an agent may be manipulated by an untrusted actor or induced to access resources beyond the authority granted by the user.
+
+This is where CoCA and CBAC become relevant.
+
+We have already seen CoCA in action. CBAC provides an authorization decision for resource access based on the request context and configured authorization policies.
+
+Consider the previous example with an MCP server added as the resource provider:
+
+```text
+Alice ─────────▶ Assistant ─────────▶ MCP Server
+```
+
+To secure this interaction, AgentDNA must be integrated at the LLM execution layer, the MCP client layer, and the MCP server layer.
+
+**1. LLM invocation**
+
+Assume the AI Assistant uses LangGraph to invoke the LLM:
+
+```py
+result = await workflow.ainvoke({"messages": [HumanMessage(content=task)]})
+final_message = result["messages"][-1]
+```
+
+AgentDNA provides `agentdna_context`() for maintaining the current workflow state during agent execution. MCP client integrations use this context to retrieve the current workflow and propagate it to MCP requests.
+
+AgentDNA context takes two params:
+
+- AgentDNA instance representing the current actor
+- Current `IntentWorkflow`
+
+```py
+from agentdna.core import AgentDNA
+from agentdna.mcp.context import agentdna_context
+
+AGENT = AgentDNA(...)
+
+with agentdna_context(AGENT, existing_intent_workflow) as ctx:
+    result = await workflow.ainvoke({"messages": [HumanMessage(content=task)]})
+    final_message = result["messages"][-1]
+
+    # ctx.workflows consists of the update Intent Workflow(s) propagated
+    # from the MCP server
+    if len(ctx.workflows) == 0:
+        raise RuntimeError("No workflows were created during agent execution")
+
+    # Use ctx.workflows to build the IntentWorkflow and pass to the next actor
+    adna_workflow_from_agent = SQLITE_AGENT.build(
+        payload=str(output),
+        previous_workflows=ctx.workflows,
+    )
+```
+
+**2. MCP Client Adapter**
+
+AgentDNA provides framework-specific MCP client adapters that intercept MCP tool calls and propagate the current `IntentWorkflow` through MCP request metadata.
+
+The adapter should be installed in the application before the MCP client is used.
+
+For instance, when use `langchain-mcp-adapters` for building the MCP Client:
+
+```py
+from __future__ import annotations
+
+from langchain_core.tools import BaseTool
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.sessions import StreamableHttpConnection
+
+from config import settings
+
+# Import and use the AgentDNA MCP Client Adapter
+from agentdna.mcp.client.langchain import install_mcp_client
+install_mcp_client()
+
+def build_client() -> MultiServerMCPClient:
+    return MultiServerMCPClient(
+        {
+            "rss": StreamableHttpConnection(
+                transport="streamable_http",
+                url=settings.rss_mcp_url,
+                timeout=settings.mcp_timeout_seconds,
+                sse_read_timeout=settings.mcp_timeout_seconds,
+            )
+        },
+    )
+
+
+async def load_tools() -> list[BaseTool]:
+    """Discover the configured RSS server's tools; direct network access is prohibited for agents."""
+    return await build_client().get_tools()
+```
+
+The AgentDNA client adapter adds the workflow to the MCP request `_meta` field. The MCP server can then extract and verify the workflow before executing the requested tool.
+
+Currently supported MCP client integrations are:
+
+- [Langchain MCP Adaptors](https://github.com/langchain-ai/langchain-mcp-adapters) - `from agentdna.mcp.client.langchain import install_mcp_client`
+- [CrewAI Tools](https://github.com/crewAIInc/crewAI/tree/main/lib/crewai-tools) - `from agentdna.mcp.client.crewai import install_mcp_client`
+
+
+**3. MCP Server Middleware**
+
+`AgentDNAMCPMiddleware` intercepts protected MCP requests on the server side and performs security checks before allowing the underlying MCP handler to execute.
+
+The security checks include:
+
+- Agent Whitelisting
+- CoCA Verification
+- CBAC Verification
+
+CBAC Verification is configurable. AgentDNA provides a [CBAC Service](https://github.com/agent-dna/cbac-server), but organizations can use their own Policy methodology and spin up a custom CBAC Server. The custom CBAC integration must provide a function matching the CbacFn contract:
+
+```py
+# agentdna/mcp/server/types.py
+
+CbacFn: TypeAlias = Callable[
+    [
+        # Agent ID: Agent which is making the request to resource
+        str,
+
+        # MCP Server ID: The identifier or address of the MCP server sending the request
+        str,
+
+        # Tool Name: Name of the tool being invoked
+        str,
+
+        # Tool Argument: Arguments passed to the tool
+        dict[str, Any],
+
+        # User Intent: The intent of the user making the request
+        str | None,
+
+        # Tool Description: Description of the tool being invoked.
+        # Its normally taken from the tool's comments. Hence, empty
+        # values are accepted.
+        str | None,
+
+        # Intent ID: The identifier of the user intent associated with the request.
+        str | None,
+    ], 
+    Awaitable[
+        tuple[
+            # Decision: The decision made by the CBAC server.
+            # The value "allow" should be sent for an Allow decision since
+            # the AgentDNA middleware relies on this value to enforce access control decisions.
+            str,
+
+            # Status Code: The HTTP-like status code representing the result of the CBAC decision.
+            int,
+
+            # Message Hash: It represent the hash of the message associated with the CBAC decision.
+            # It is not encouraged to share the actual information contained in the message, since
+            # it may have PII information, which should not be stored directly on the Provenance layer
+            str
+        ]
+    ]
+]
+```
+
+Use the `AgentDNAMCPMiddleware` as follows:
+
+```py
+# mcp_server.py
+
+from fastmcp import FastMCP
+
+from agentdna import AgentDNA
+from agentdna.mcp.server.fastmcp import AgentDNAMCPMiddleware
+# AgentDNA provided CBAC authorization function
+# This is can be replaced with custom CBAC server's authorize function
+from cbac import authorize
+
+# Define AgentDNA instance for the MCP Server
+mcp_server_dna = AgentDNA(
+    name="Github MCP",
+    type="tool",
+    api_key="<AgentDNA API Key>",
+    provenance_layer_url="<Provenance Layer URL, if any>",
+    admin_server_url="<Admin Server URL, if any. Used for agent whitelist verification>",
+)
+
+mcp = FastMCP("<App Name>")
+
+# Add the AgentDNA MCP Middlware
+#
+# AgentDNAMCPMiddleware takes the following arguments:
+#   - MCP Server AgentDNA Instance
+#   - (Optional) CBAC Authorization Function
+mcp.add_middleware(
+    AgentDNAMCPMiddleware(
+        mcp_server_dna,
+        authorize
+    )
+)
+
+###### ---- Rest of the Business Logic remains unchanged ---- ######
+```
+
+Currently supported MCP server integrations:
+
+- [FastMCP](https://github.com/PrefectHQ/fastmcp) - `from agentdna.mcp.server.fastmcp import AgentDNAMCPMiddleware`
+- [MCP v2 Python SDK](https://github.com/modelcontextprotocol/python-sdks) - Refer [here](./examples/rss_research_agent/mcp_server_mcp2.py) for a complete usage example
 
 ## Open Beta
 

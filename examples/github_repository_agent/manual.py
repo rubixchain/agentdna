@@ -36,7 +36,7 @@ async def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
         
-    result = await run_task(args.prompt, adna_workflow)
+    result = await run_task(adna_workflow)
 
     if args.json:
         log_result(result, args.prompt)

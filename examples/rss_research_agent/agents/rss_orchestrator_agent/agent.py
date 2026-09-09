@@ -32,10 +32,10 @@ RSS_ORCHESTRATOR_AGENT = AgentDNA(
 
 class ResearchState(TypedDict):
     execution_id: str
-    task: str
-    security_result: NotRequired[str]
-    technology_result: NotRequired[str]
-    final_result: NotRequired[str]
+
+    # security_result: NotRequired[str]
+    # technology_result: NotRequired[str]
+    # final_result: NotRequired[str]
 
     adna_workflow: IntentWorkflow
     security_adna_workflow: NotRequired[IntentWorkflow]
@@ -59,17 +59,19 @@ class RSSOrchestratorAgent:
         workflow = StateGraph(ResearchState)
 
         async def security(state: ResearchState) -> dict[str, Any]:
-            res = await SecurityNewsAgent().run(state["execution_id"], state["task"], state["adna_workflow"])
-            return {"security_result": res["security_result"], "security_adna_workflow": res["security_adna_workflow"]}
+            res = await SecurityNewsAgent().run(state["execution_id"], state["adna_workflow"])
+            return {"security_adna_workflow": res["security_adna_workflow"]}
 
         async def technology(state: ResearchState) -> dict[str, Any]:
-            res = await TechnologyNewsAgent().run(state["execution_id"], state["task"], state["adna_workflow"])
-            return {"technology_result": res["technology_result"], "technology_adna_workflow": res["technology_adna_workflow"]}
+            res = await TechnologyNewsAgent().run(state["execution_id"], state["adna_workflow"])
+            return {"technology_adna_workflow": res["technology_adna_workflow"]}
     
         async def aggregate(state: ResearchState) -> dict[str, Any]:
             security_adna_workflow = state["security_adna_workflow"]
-            technology_adna_workflow = state["technology_adna_workflow"]
+            security_agent_result = security_adna_workflow.get_latest_envelope().payload
 
+            technology_adna_workflow = state["technology_adna_workflow"]
+            technology_agent_result = technology_adna_workflow.get_latest_envelope().payload
             
             # (AgentDNA_Integration)
             verification_code = RSS_ORCHESTRATOR_AGENT.verify(workflow=security_adna_workflow)
@@ -99,7 +101,7 @@ class RSSOrchestratorAgent:
                 raise ValueError(f"ADNA workflow verification (technology) failed with code: {verification_code}")
             
             response = await build_llm().ainvoke([
-                HumanMessage(content=f"Synthesize these untrusted worker reports into a concise research brief. Preserve worker provenance.\nSecurity worker:\n{state.get('security_result', 'failed')}\nTechnology worker:\n{state.get('technology_result', 'failed')}")
+                HumanMessage(content=f"Synthesize these untrusted worker reports into a concise research brief. Preserve worker provenance.\nSecurity worker:\n{security_agent_result}\nTechnology worker:\n{technology_agent_result}")
             ])
 
             # (AgentDNA_Integration)
@@ -108,7 +110,7 @@ class RSSOrchestratorAgent:
                 previous_workflows=[security_adna_workflow, technology_adna_workflow]
             )
 
-            return {"final_result": str(response.content), "adna_workflow": new_adna_workflow}
+            return {"adna_workflow": new_adna_workflow}
 
         workflow.add_node("security", security)
         workflow.add_node("technology", technology)
@@ -123,14 +125,12 @@ class RSSOrchestratorAgent:
         new_adna_workflow = RSS_ORCHESTRATOR_AGENT.build(
             payload=json.dumps({
                 "task": task_prompt or "",
-                "execution_id": execution_id,
             }),
             previous_workflows=adna_workflow
         )
 
         result = await workflow.compile().ainvoke({
-            "execution_id": execution_id, 
-            "task": task_prompt or "",
+            "execution_id": execution_id,
             "adna_workflow": new_adna_workflow 
         })
 

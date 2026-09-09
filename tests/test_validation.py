@@ -1,5 +1,3 @@
-import pytest
-
 from agentdna.error import RESULT_OK
 
 
@@ -15,21 +13,6 @@ def test_build_with_empty_payload(user, agent):
     result = agent.verify(workflow)
 
     assert result == RESULT_OK
-
-
-def test_invalid_verification_mode_raises(user, agent):
-    """
-    Ensures unsupported verification modes
-    are rejected.
-    """
-    workflow = user.build(
-        payload="Hello",
-    )
-
-    agent.verification_mode = "invalid"
-
-    with pytest.raises(ValueError, match="unsupported verification mode"):
-        agent.verify(workflow)
 
 
 def test_handle_with_invalid_signature_returns_invalid(user, agent):

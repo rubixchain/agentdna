@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 from config import settings
 
 from agentdna import AgentDNA
-from agentdna.integrations.mcp.fastmcp.middleware import AgentDNAMCPMiddleware
+from agentdna.mcp.server.fastmcp import AgentDNAMCPMiddleware
 from cbac import authorize
 
 mcp_server_dna = AgentDNA(
@@ -82,7 +82,6 @@ async def issues(repository: str, limit: int = 20) -> object:
     if not 1 <= limit <= 50:
         raise ValueError("limit must be between 1 and 50")
     return await _get(f"/repos/{_repository(repository)}/issues", {"state": "open", "per_page": limit})
-
 
 @mcp.tool()
 async def pull_requests(repository: str, limit: int = 20) -> object:

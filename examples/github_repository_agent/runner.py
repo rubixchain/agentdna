@@ -7,10 +7,11 @@ from typing import Any
 
 from agents.github_agent import GitHubRepositoryAgent
 from config import settings
+from agentdna.types import IntentWorkflow
 
 
-async def run_task(task_prompt: str, adna_workflow) -> dict[str, Any]:
-    return await GitHubRepositoryAgent().run(task_prompt, adna_workflow)
+async def run_task(adna_workflow: IntentWorkflow) -> dict[str, Any]:
+    return await GitHubRepositoryAgent().run(adna_workflow)
 
 
 def log_result(result: dict[str, Any], task_prompt: str) -> None:

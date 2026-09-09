@@ -42,7 +42,6 @@ from .types import (
     Envelope,
     IntentWorkflow,
     supported_actors,
-    supported_verification_modes,
 )
 from .verifier import (
     verify_boundary,
@@ -65,6 +64,7 @@ class AgentDNA:
         skip_actor_id_registration: bool = False,
         log_level: str = "INFO",
         log_format: str = "text",
+        log_file_path: str = "",
     ):
         if name == "":
             raise NameError("'name' attribute cannot be empty")
@@ -76,14 +76,16 @@ class AgentDNA:
 
         self.api_key = api_key
 
-        configure_logging(log_level, log_format)
-        self.logger = get_logger("agentdna").bind(actor_name=name, actor_type=type)
-
         self.config_dir = config_dir if config_dir else get_default_config_dir()
         os.makedirs(
             self.config_dir,
             exist_ok=True,
         )
+
+        log_path = Path(log_file_path) if log_file_path else Path(self.config_dir) / "agentdna.log"
+
+        configure_logging(log_level, log_format, str(log_path))
+        self.logger = get_logger("agentdna").bind(actor_name=name, actor_type=type)
 
         self.provenance = Provenance(
             name=name,
@@ -94,8 +96,6 @@ class AgentDNA:
             actor_type=type,
         )
         self.agentdna_admin_url = admin_server_url
-
-        self.logger = self.provenance.logger
 
         self.type = type
         self.name = name
@@ -238,12 +238,17 @@ class AgentDNA:
         the provenance layer.
         """
 
+        self.__validate_api_key()
+
         try:
             response = requests.post(
                 urljoin(self.provenance.provenance_url, "/core/v1/register-tool"),
                 json={
                     "tool_name": self.name,
                     "tool_id": self.get_actor_id(),
+                },
+                headers={
+                    "X-API-Key": self.api_key,
                 },
                 timeout=300,
             )
@@ -497,7 +502,7 @@ class AgentDNA:
             workflow_card_id = self.provenance.create_new_child_provenance_card(
                 parent_card_id=user_card_id,
                 card_info=workflow.serialize(),
-                child_nft_id=workflow.id
+                child_nft_id=workflow.id,
             )
 
             self.logger.info(
@@ -599,11 +604,7 @@ class AgentDNA:
 
         return new_workflow
 
-    def verify(
-        self,
-        workflow: IntentWorkflow,
-        mode: str = VERIFY_BOUNDARY
-    ) -> int:
+    def verify(self, workflow: IntentWorkflow, mode: str = VERIFY_BOUNDARY) -> int:
         """
         Verifies an incoming workflow and returns
         the latest envelope.

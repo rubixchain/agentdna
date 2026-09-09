@@ -1,8 +1,19 @@
 from urllib.parse import urljoin
 
+
 def request_agent_whitelist_check(agentdna_admin_url: str, agent_id: str) -> bool:
     """
     Request the AgentDNA Admin server to check if the agent is whitelisted.
+
+    Args:
+        agentdna_admin_url (str): The URL of the AgentDNA Admin server.
+        agent_id (str): The ID of the agent to check.
+
+    Returns:
+        bool: True if the agent is whitelisted, False otherwise.
+
+    Raises:
+        Exception: If the request to the Admin server fails.
     """
     import requests
 

@@ -10,7 +10,7 @@ from fastmcp import FastMCP
 from config import settings
 
 from agentdna import AgentDNA
-from agentdna.integrations.mcp.fastmcp.middleware import AgentDNAMCPMiddleware
+from agentdna.mcp.server.fastmcp import AgentDNAMCPMiddleware
 
 from cbac import authorize
 

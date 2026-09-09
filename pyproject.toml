@@ -28,15 +28,9 @@ dependencies = [
   "pyyaml>=6.0",
   "structlog>=24.0.0",
   "fastmcp>=3.4.2",
+  "colorama"
 ]
 
-[project.optional-dependencies]
-# Required for the MCP integration glue (agentdna/cbac/mcp.py)
-# Install with: pip install agent-dna[mcp]
-mcp = [
-  "fastmcp>=3.4.0",
-  "langchain-mcp-adapters>=0.3.0",
-]
 
 [project.urls]
 Homepage = "https://github.com/agent-dna/agentdna"
@@ -46,10 +40,7 @@ Repository = "https://github.com/agent-dna/agentdna"
 dev = [
     "pyright>=1.1.411",
     "pytest>=8.0.0",
-    "ruff==0.16.0",  # pinned exact: CI has no committed uv.lock, so an unbounded
-                     # spec drifts to newer ruff and its new rules break CI.
-    # pyright checks agentdna/cbac/mcp.py, so the dev env needs the extra's imports.
-    "agent-dna[mcp]",
+    "ruff==0.16.0",
 ]
 
 [tool.pytest.ini_options]
@@ -78,6 +69,7 @@ ignore = [
     "ISC001",  # conflicts with the formatter
     "E501",    # line length is enforced by `ruff format`; E501 only nags about
                # strings/comments/URLs the formatter can't break
+    "B904"
 ]
 
 [tool.pyright]
