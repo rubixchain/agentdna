@@ -293,7 +293,7 @@ workflow = assistant.build(
     previous_workflows=workflow_from_last_step,
 )
 ```
-_
+
 The final workflow has the following structure:
 
 ```text
