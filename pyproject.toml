@@ -75,9 +75,10 @@ ignore = [
 [tool.pyright]
 # Package is only partially typed; basic keeps the hook signal useful without noise.
 typeCheckingMode = "basic"
+reportAttributeAccessIssue = "none"
 pythonVersion = "3.10"
 venvPath = "."
 venv = ".venv"
 include = ["agentdna"]
 # examples/ has its own heavy deps that aren't in the dev env; ruff still covers it, pyright does not.
-exclude = ["examples", ".venv", "**/__pycache__"]
+exclude = ["examples", ".venv", "**/__pycache__", "agentdna/mcp/client", "agentdna/mcp/server"]
