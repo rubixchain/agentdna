@@ -8,8 +8,8 @@ from config import settings
 
 from agentdna.types import IntentWorkflow
 
-def run_task(task_prompt: str, adna_workflow: IntentWorkflow) -> dict[str, Any]:
-    return SQLiteAnalyticsAgent().run(task_prompt, adna_workflow)
+def run_task(adna_workflow: IntentWorkflow) -> dict[str, Any]:
+    return SQLiteAnalyticsAgent().run(adna_workflow)
 
 
 def log_result(result: dict[str, Any], task_prompt: str) -> None:

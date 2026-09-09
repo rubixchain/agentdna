@@ -18,7 +18,7 @@ build/
 htmlcov/
 .tox/
 .env
-
+*venv*
 credentials/
 *.json.key
 
@@ -33,6 +33,8 @@ uv.lock
 examples/github_agent_workflow/agent_actor_ids.json
 examples/github_agent_workflow/agent_names.json
 
+examples/sqlite_analytics_agent/data
+examples/rss_research_agent/data
 # Tests
 
 tests/temp

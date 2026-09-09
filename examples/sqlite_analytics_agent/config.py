@@ -30,6 +30,13 @@ class Settings:
     agentdna_api_key: str = os.getenv("AGENTDNA_API_KEY", "")
     provenance_layer_url: str = os.getenv("PROVENANCE_LAYER_URL", "https://chain-connector-2.rubix.net")
     user_name: str = os.getenv("USER_NAME", "")
+    admin_server_url: str = os.getenv("ADMIN_SERVER_URL", "https://agentdna-admin.agentdna.io")
     sqlite_agent_name: str = os.getenv("SQLITE_AGENT_NAME", "")
+    sqlite_mcp_url: str = os.getenv("SQLITE_MCP_URL", "http://127.0.0.1:8544/mcp")
+    mcp_timeout_seconds: int = 3000
+    mcp_server_name: str = os.getenv("MCP_SERVER_NAME", "sqlite-analytics-mcp")
+
+    mcp_host: str = os.getenv("MCP_HOST", "127.0.0.1")
+    mcp_port: int = int(os.getenv("MCP_PORT", "8544"))
 
 settings = Settings()

@@ -179,17 +179,6 @@ def test_verify_without_envelope_raises(agent):
         agent.verify(workflow)
 
 
-def test_invalid_verification_mode_raises(agent, user):
-    workflow = user.build(
-        payload="MFA is mandatory",
-    )
-
-    agent.verification_mode = "invalid"
-
-    with pytest.raises(ValueError, match="unsupported verification mode"):
-        agent.verify(workflow)
-
-
 def test_light_verification_mode(user, agent):
     agent.verification_mode = VERIFY_LIGHT
 

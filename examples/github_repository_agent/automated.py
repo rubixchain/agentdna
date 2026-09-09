@@ -41,7 +41,7 @@ async def main() -> None:
         payload=prompt
     )
 
-    result = await run_task(prompt, adna_workflow)
+    result = await run_task(adna_workflow)
 
     try:
         USER.record(result["adna_workflow"])

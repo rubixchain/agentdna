@@ -34,7 +34,7 @@ def main() -> None:
             payload=args.prompt,
         )
 
-        result = run_task(args.prompt, adna_workflow)
+        result = run_task(adna_workflow)
 
         USER.record(result["adna_workflow"])
 
