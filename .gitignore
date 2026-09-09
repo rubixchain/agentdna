@@ -5,6 +5,7 @@ venv/
 .DS_Store
 .vscode/
 .venv/
+.ruff_cache/
 
 dist/
 build/
@@ -17,19 +18,25 @@ build/
 htmlcov/
 .tox/
 .env
-
+*venv*
 credentials/
 *.json.key
 
 .agentdna/
 .claude/
 
+uv.lock
+.ruff_cache
 
 # Example specific
 
 examples/github_agent_workflow/agent_actor_ids.json
 examples/github_agent_workflow/agent_names.json
 
+examples/sqlite_analytics_agent/data
+examples/rss_research_agent/data
 # Tests
 
 tests/temp
+
+docs

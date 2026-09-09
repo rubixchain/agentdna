@@ -2,9 +2,14 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+# cbac_service is a standalone deployable with its own pyproject.toml and lock;
+# it depends on this library from PyPI. Ship only the agentdna package.
+[tool.setuptools.packages.find]
+include = ["agentdna*"]
+
 [project]
 name = "agent-dna"
-version = "0.4.1"
+version = "0.5.0"
 description = "Security, Governance and Audit framework for AI Agents"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -18,20 +23,62 @@ authors = [
 dependencies = [
   "requests>=2.0.0",
   "python-dotenv>=1.0.0",
-  "rubix-py>=1.0.0",
+  "rubix-py>=1.2.0",
   "py-multiformats-cid>=0.4.4",
   "pyyaml>=6.0",
+  "structlog>=24.0.0",
+  "fastmcp>=3.4.2",
+  "colorama"
 ]
 
-[project.optional-dependencies]
-# Required for the three-tier semantic CBAC pipeline
-# Install with: pip install agent-dna[semantic]
-semantic = [
-  "sentence-transformers>=3.0.0",
-  "scipy>=1.10.0",
-  "numpy>=1.24.0",
-]
 
 [project.urls]
 Homepage = "https://github.com/agent-dna/agentdna"
 Repository = "https://github.com/agent-dna/agentdna"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.411",
+    "pytest>=8.0.0",
+    "ruff==0.16.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# cbac_service has its own env and its own pytest config; run it from there.
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# Curated, low-noise ruleset — the single source of truth for local + CI.
+#   E/F   pycodestyle errors + pyflakes (undefined names, unused imports)
+#   I     import sorting
+#   UP    pyupgrade (modern 3.10+ type hints: list[str], X | None)
+#   B     flake8-bugbear (real bug patterns)
+#   ISC   implicit string-concat bugs
+# Deliberately NOT enabled — they fight intentional design in cbac_service:
+#   BLE001         the CBAC pipeline is fail-closed (any error → deny), so
+#                  broad `except Exception` is correct, not a smell.
+#   TRY003/TRY004  descriptive error messages and parse_skill_md's documented
+#                  ValueError contract are intentional.
+select = ["E", "F", "I", "UP", "B", "ISC"]
+ignore = [
+    "ISC001",  # conflicts with the formatter
+    "E501",    # line length is enforced by `ruff format`; E501 only nags about
+               # strings/comments/URLs the formatter can't break
+    "B904"
+]
+
+[tool.pyright]
+# Package is only partially typed; basic keeps the hook signal useful without noise.
+typeCheckingMode = "basic"
+reportAttributeAccessIssue = "none"
+pythonVersion = "3.10"
+venvPath = "."
+venv = ".venv"
+include = ["agentdna"]
+# examples/ has its own heavy deps that aren't in the dev env; ruff still covers it, pyright does not.
+exclude = ["examples", ".venv", "**/__pycache__", "agentdna/mcp/client", "agentdna/mcp/server"]

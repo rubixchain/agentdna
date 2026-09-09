@@ -1,17 +1,18 @@
 import json
 import os
-
 from dataclasses import asdict
 from pathlib import Path
 
 from .types import (
-    ActorRegistryEntry,
     ACTOR_INFO_FILE,
+    ActorRegistryEntry,
 )
+
 
 # --------- Actor Config functions ----------------------
 def get_default_config_dir() -> str:
     return os.path.join(Path.home(), ".agentdna")
+
 
 def load_actor_config(
     config_dir: str,
@@ -28,13 +29,11 @@ def load_actor_config(
     if not os.path.exists(actor_config_path):
         return []
 
-    with open(actor_config_path, "r", encoding="utf-8") as fp:
+    with open(actor_config_path, encoding="utf-8") as fp:
         data = json.load(fp)
 
-    return [
-        ActorRegistryEntry(**entry)
-        for entry in data
-    ]
+    return [ActorRegistryEntry(**entry) for entry in data]
+
 
 def save_actor_config(
     config_dir: str,
@@ -53,13 +52,11 @@ def save_actor_config(
 
     with open(actor_config_path, "w", encoding="utf-8") as fp:
         json.dump(
-            [
-                asdict(entry)
-                for entry in entries
-            ],
+            [asdict(entry) for entry in entries],
             fp,
             indent=4,
         )
+
 
 def get_actor_registry_entry(
     config_dir: str,
@@ -69,16 +66,14 @@ def get_actor_registry_entry(
     Finds an actor registry entry by actor ID.
     """
 
-    entries = load_actor_config(
-        config_dir
-    )
+    entries = load_actor_config(config_dir)
 
     for entry in entries:
-
         if entry.actor_id == actor_id:
             return entry
 
     return None
+
 
 def upsert_actor_registry_entry(
     config_dir: str,
@@ -88,9 +83,7 @@ def upsert_actor_registry_entry(
     Inserts or updates an actor registry entry.
     """
 
-    entries = load_actor_config(
-        config_dir
-    )
+    entries = load_actor_config(config_dir)
 
     for idx, existing in enumerate(entries):
         if existing.actor_id == entry.actor_id:
@@ -108,5 +101,6 @@ def upsert_actor_registry_entry(
         config_dir,
         entries,
     )
+
 
 # ------------------------------------------------------
